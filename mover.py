@@ -318,6 +318,7 @@ def main():
             push_files(autosaves_temp_path, saves_phone_path_tmp, [autosave_file], must_exist=True)
         subprocess.run(["adb", "shell", "pm", "clear", "com.humble.SlayTheSpire"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         subprocess.run(["adb", "shell", "mv", path_join_adb(phone_tmp_path, "files"), phone_path], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(["adb", "shell", "rm", "-r", phone_tmp_path], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
         pull_files(prefs_phone_path, prefs_pc_path, PREFS_TO_MOVE)
         copy_runs_directory(runs_pc_path, runs_phone_path, timezone_offset_hours, direction)
