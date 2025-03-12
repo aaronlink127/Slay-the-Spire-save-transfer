@@ -254,12 +254,13 @@ def pull_encoded_json(phone_file_path, temp_file_path, pc_file_path):
 def main():
     config = load_config()
 
+    phone_path = config["AndroidPathToGame"]
     prefs_pc_path = os.path.join(config["PcPathToGame"], "preferences")
-    prefs_phone_path = path_join_adb(config["AndroidPathToGame"], "files/preferences")
+    prefs_phone_path = path_join_adb(phone_path, "files/preferences")
     runs_pc_path = os.path.join(config["PcPathToGame"], "runs")
-    runs_phone_path = path_join_adb(config["AndroidPathToGame"], "files/runs")
+    runs_phone_path = path_join_adb(phone_path, "files/runs")
     saves_pc_path = os.path.join(config["PcPathToGame"], "saves")
-    saves_phone_path = path_join_adb(config["AndroidPathToGame"], "files/saves")
+    saves_phone_path = path_join_adb(phone_path, "files/saves")
     timezone_offset_hours = parse_time_offset(config["LocalTimezoneOffsetHours"])
     
     if len(sys.argv) != 2 or sys.argv[1] not in ("pc_to_mobile", "mobile_to_pc"):
@@ -286,9 +287,10 @@ def main():
     
     validate_adb()
     
-    subprocess.run(["adb", "shell", "mkdir", "-p", prefs_phone_path], check=True)
-    subprocess.run(["adb", "shell", "mkdir", "-p", runs_phone_path], check=True)
-    subprocess.run(["adb", "shell", "mkdir", "-p", saves_phone_path], check=True)
+    phone_tmp_path = "/data/local/tmp/slaythespire"
+    prefs_phone_path_tmp = path_join_adb(phone_tmp_path, "files/preferences")
+    runs_phone_path_tmp = path_join_adb(phone_tmp_path, "files/runs")
+    saves_phone_path_tmp = path_join_adb(phone_tmp_path, "files/saves")
 
     if not os.path.exists(TMP_PC_PATH):
         os.mkdir(TMP_PC_PATH)
@@ -297,9 +299,12 @@ def main():
     if not os.path.exists(autosaves_temp_path):
         os.mkdir(autosaves_temp_path)
         
-    if direction == "pc_to_mobile":           
-        push_files(prefs_pc_path, prefs_phone_path, PREFS_TO_MOVE)
-        copy_runs_directory(runs_pc_path, runs_phone_path, timezone_offset_hours, direction)
+    if direction == "pc_to_mobile":     
+        subprocess.run(["adb", "shell", "mkdir", "-p", prefs_phone_path_tmp], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(["adb", "shell", "mkdir", "-p", runs_phone_path_tmp], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(["adb", "shell", "mkdir", "-p", saves_phone_path_tmp], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        push_files(prefs_pc_path, prefs_phone_path_tmp, PREFS_TO_MOVE)
+        copy_runs_directory(runs_pc_path, runs_phone_path_tmp, timezone_offset_hours, direction)
         for autosave_file in AUTOSAVE_FILES:
             pc_file_path = os.path.join(saves_pc_path, autosave_file)
             if not os.path.exists(pc_file_path):
@@ -310,7 +315,9 @@ def main():
             temp_file_path = os.path.join(autosaves_temp_path, autosave_file)
             with open(temp_file_path, "w") as f:
                 f.write(decoded_str)
-            push_files(autosaves_temp_path, saves_phone_path, [autosave_file], must_exist=True)
+            push_files(autosaves_temp_path, saves_phone_path_tmp, [autosave_file], must_exist=True)
+        subprocess.run(["adb", "shell", "pm", "clear", "com.humble.SlayTheSpire"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(["adb", "shell", "mv", path_join_adb(phone_tmp_path, "files"), phone_path], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
         pull_files(prefs_phone_path, prefs_pc_path, PREFS_TO_MOVE)
         copy_runs_directory(runs_pc_path, runs_phone_path, timezone_offset_hours, direction)
